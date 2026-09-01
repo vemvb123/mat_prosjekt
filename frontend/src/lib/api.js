@@ -1,5 +1,6 @@
 function buildApiUrl(path, params) {
-  const url = new URL(path, window.location.origin);
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+  const url = new URL(path, baseUrl);
 
   Object.entries(params).forEach(([key, value]) => {
     if (Array.isArray(value)) {
@@ -14,7 +15,7 @@ function buildApiUrl(path, params) {
     }
   });
 
-  return `${url.pathname}${url.search}`;
+  return import.meta.env.VITE_API_BASE_URL ? url.toString() : `${url.pathname}${url.search}`;
 }
 
 async function requestJson(url, options) {
