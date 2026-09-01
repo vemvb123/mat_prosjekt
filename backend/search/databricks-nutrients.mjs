@@ -36,56 +36,56 @@ const NUTRIENTS = [
     name: "monounsaturated_fat",
     displayName: "Enumettet fett",
     unit: "g",
-    index: 4,
+    index: null,
     aliases: ["enumettet fett", "monounsaturated fat"],
   },
   {
     name: "polyunsaturated_fat",
     displayName: "Flerumettet fett",
     unit: "g",
-    index: 5,
+    index: null,
     aliases: ["flerumettet fett", "polyunsaturated fat"],
   },
   {
     name: "carbohydrates",
     displayName: "Karbohydrater",
     unit: "g",
-    index: 6,
+    index: 4,
     aliases: ["karbohydrater", "karbohydrat", "carbohydrates", "carbs"],
   },
   {
     name: "sugars",
     displayName: "Sukkerarter",
     unit: "g",
-    index: 7,
+    index: 5,
     aliases: ["sukkerarter", "sukker", "sugars", "sugar"],
   },
   {
     name: "sugar_alcohols",
     displayName: "Sukkeralkoholer",
     unit: "g",
-    index: 8,
+    index: null,
     aliases: ["sukkeralkoholer", "sugar alcohols", "polyols"],
   },
   {
     name: "fiber",
     displayName: "Kostfiber",
     unit: "g",
-    index: 9,
+    index: null,
     aliases: ["kostfiber", "fiber", "fibre"],
   },
   {
     name: "protein",
     displayName: "Protein",
     unit: "g",
-    index: 10,
+    index: 6,
     aliases: ["protein", "proteiner"],
   },
   {
     name: "salt",
     displayName: "Salt",
     unit: "g",
-    index: 11,
+    index: 7,
     aliases: ["salt"],
   },
 ];
@@ -112,10 +112,6 @@ function requireDatabricksEnv() {
   if (missing.length > 0) {
     throw new Error(`Mangler Databricks miljøvariabler: ${missing.join(", ")}`);
   }
-}
-
-function sqlString(value) {
-  return `'${String(value).replaceAll("'", "''")}'`;
 }
 
 function rowValue(row, key) {
@@ -150,7 +146,7 @@ function productFromDatabricksRow(row, nutrient) {
 
 async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page, pageSize }) {
   const { nutrient, missingQueries } = findNutrient(query);
-  if (!nutrient) {
+  if (!nutrient || nutrient.index === null) {
     return {
       mode: "nutrient",
       query,
@@ -162,8 +158,12 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
       totalPages: 1,
       snapshotWeek: "",
       snapshotCapturedAt: "",
-      nutrient: null,
-      warnings: [`Fant ikke næringsstoff for: ${missingQueries.join(", ")}`],
+      nutrient: nutrient ? {
+        Name: nutrient.name,
+        DisplayName: nutrient.displayName,
+        Unit: nutrient.unit,
+      } : null,
+      warnings: [nutrient ? `${nutrient.displayName} finnes ikke i nutritionalContent-dataene fra Databricks.` : `Fant ikke næringsstoff for: ${missingQueries.join(", ")}`],
       missingQueries,
       bestItem: null,
       items: [],
@@ -174,10 +174,9 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
 
   const client = new DBSQLClient();
   const offset = (page - 1) * pageSize;
-  const nutrientAliases = [nutrient.displayName, nutrient.name, ...nutrient.aliases]
-    .map(normalizeText)
-    .map(sqlString)
-    .join(",");
+  const chainList = chains.map((chain) => `'${chain.replaceAll("'", "''")}'`).join(",");
+  const nutrientPath = `$.nutritionalContent[${nutrient.index}].amount`;
+  const nutrientUnitPath = `$.nutritionalContent[${nutrient.index}].unit`;
 
   try {
     await client.connect({
@@ -200,33 +199,22 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
           COALESCE(get_json_object(product_json, '$.subtitle'), get_json_object(product_json, '$.packageSize')) AS subtitle,
           COALESCE(get_json_object(product_json, '$.description'), '') AS description,
           COALESCE(get_json_object(product_json, '$.store.name'), get_json_object(product_json, '$.storeName')) AS store_name,
-          COALESCE(get_json_object(product_json, '$.chain.name'), get_json_object(product_json, '$.chainName')) AS chain_name,
-          LOWER(COALESCE(get_json_object(product_json, '$.chain.key'), get_json_object(product_json, '$.chainKey'))) AS chain_key,
-          filter(
-            from_json(
-              get_json_object(product_json, '$.nutritionalContent'),
-              'array<struct<name:string,displayName:string,amount:double,unit:string>>'
-            ),
-            item -> regexp_replace(
-              lower(coalesce(item.displayName, item.name, '')),
-              '[^a-z0-9]+',
-              ' '
-            ) IN (${nutrientAliases})
-          )[0] AS nutrient
+          chain AS chain_name,
+          LOWER(chain) AS chain_key,
+          CAST(get_json_object(product_json, '${nutrientPath}') AS DOUBLE) AS nutrient_per_100g,
+          COALESCE(get_json_object(product_json, '${nutrientUnitPath}'), '${nutrient.unit}') AS nutrient_unit
         FROM products
         WHERE get_json_object(product_json, '$.compareUnit') = '${compareUnit}'
       ),
       scored AS (
         SELECT
           *,
-          CAST(nutrient.amount AS DOUBLE) AS nutrient_per_100g,
-          CAST(nutrient.amount AS DOUBLE) * 10 AS nutrient_per_package,
-          ROUND((CAST(nutrient.amount AS DOUBLE) * 10) / price_per_compare_unit, 2) AS nutrient_per_nok,
-          COALESCE(nutrient.unit, '${nutrient.unit}') AS nutrient_unit
+          nutrient_per_100g * 10 AS nutrient_per_package,
+          ROUND((nutrient_per_100g * 10) / price_per_compare_unit, 2) AS nutrient_per_nok
         FROM parsed
         WHERE price_per_compare_unit > 0
-          AND nutrient IS NOT NULL
-          AND CAST(nutrient.amount AS DOUBLE) > 0
+          AND nutrient_per_100g > 0
+          AND chain_key IN (${chainList})
       ),
       counted AS (
         SELECT *, COUNT(*) OVER () AS total
