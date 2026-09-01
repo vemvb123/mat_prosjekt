@@ -114,6 +114,10 @@ function requireDatabricksEnv() {
   }
 }
 
+function sqlString(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
 function rowValue(row, key) {
   return row[key] ?? row[key.toUpperCase()] ?? row[key.toLowerCase()] ?? null;
 }
@@ -170,9 +174,10 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
 
   const client = new DBSQLClient();
   const offset = (page - 1) * pageSize;
-  const chainList = chains.map((chain) => `'${chain.replaceAll("'", "''")}'`).join(",");
-  const nutrientPath = `$.nutritionalContent[${nutrient.index}].amount`;
-  const nutrientUnitPath = `$.nutritionalContent[${nutrient.index}].unit`;
+  const nutrientAliases = [nutrient.displayName, nutrient.name, ...nutrient.aliases]
+    .map(normalizeText)
+    .map(sqlString)
+    .join(",");
 
   try {
     await client.connect({
@@ -183,7 +188,7 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
 
     const session = await client.openSession();
     const operation = await session.executeStatement(`
-      WITH ranked AS (
+      WITH parsed AS (
         SELECT
           COALESCE(get_json_object(product_json, '$.title'), get_json_object(product_json, '$.name')) AS name,
           COALESCE(get_json_object(product_json, '$.brand'), get_json_object(product_json, '$.brandName')) AS brand,
@@ -197,23 +202,31 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
           COALESCE(get_json_object(product_json, '$.store.name'), get_json_object(product_json, '$.storeName')) AS store_name,
           COALESCE(get_json_object(product_json, '$.chain.name'), get_json_object(product_json, '$.chainName')) AS chain_name,
           LOWER(COALESCE(get_json_object(product_json, '$.chain.key'), get_json_object(product_json, '$.chainKey'))) AS chain_key,
-          CAST(COALESCE(get_json_object(product_json, '$.packageContentAmount'), get_json_object(product_json, '$.packageContent.amount')) AS DOUBLE) AS package_content_amount,
-          CAST(get_json_object(product_json, '${nutrientPath}') AS DOUBLE) AS nutrient_per_100g,
-          COALESCE(get_json_object(product_json, '${nutrientUnitPath}'), '${nutrient.unit}') AS nutrient_unit
+          filter(
+            from_json(
+              get_json_object(product_json, '$.nutritionalContent'),
+              'array<struct<name:string,displayName:string,amount:double,unit:string>>'
+            ),
+            item -> regexp_replace(
+              lower(coalesce(item.displayName, item.name, '')),
+              '[^a-z0-9]+',
+              ' '
+            ) IN (${nutrientAliases})
+          )[0] AS nutrient
         FROM products
         WHERE get_json_object(product_json, '$.compareUnit') = '${compareUnit}'
       ),
       scored AS (
         SELECT
           *,
-          COALESCE(package_content_amount, (price / price_per_compare_unit) * 1000) AS effective_package_content_amount,
-          nutrient_per_100g * (COALESCE(package_content_amount, (price / price_per_compare_unit) * 1000) / 100) AS nutrient_per_package,
-          ROUND((nutrient_per_100g * 10) / price_per_compare_unit, 2) AS nutrient_per_nok
-        FROM ranked
-        WHERE price > 0
-          AND price_per_compare_unit > 0
-          AND nutrient_per_100g > 0
-          AND (chain_key IS NULL OR chain_key IN (${chainList}))
+          CAST(nutrient.amount AS DOUBLE) AS nutrient_per_100g,
+          CAST(nutrient.amount AS DOUBLE) * 10 AS nutrient_per_package,
+          ROUND((CAST(nutrient.amount AS DOUBLE) * 10) / price_per_compare_unit, 2) AS nutrient_per_nok,
+          COALESCE(nutrient.unit, '${nutrient.unit}') AS nutrient_unit
+        FROM parsed
+        WHERE price_per_compare_unit > 0
+          AND nutrient IS NOT NULL
+          AND CAST(nutrient.amount AS DOUBLE) > 0
       ),
       counted AS (
         SELECT *, COUNT(*) OVER () AS total
