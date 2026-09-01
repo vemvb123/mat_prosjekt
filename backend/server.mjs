@@ -9,6 +9,11 @@ const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${host}:${port}`);
 
   try {
+    if (request.method === "OPTIONS" && url.pathname === "/api/search") {
+      writeCorsPreflight(response);
+      return;
+    }
+
     if (request.method === "GET" && url.pathname === "/api/search") {
       await handleSearchRequest(url, response);
       return;
@@ -29,3 +34,12 @@ server.listen(port, host, () => {
   console.log(`Node backend listening on http://${host}:${port}`);
   console.log(`Using SQLite database at ${dbPath}`);
 });
+
+function writeCorsPreflight(response) {
+  response.writeHead(204, {
+    "Access-Control-Allow-Origin": process.env.ALLOWED_ORIGIN || "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  });
+  response.end();
+}

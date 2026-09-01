@@ -3,16 +3,24 @@ import { queryDatabricksNutrientRanking } from "../../search/databricks-nutrient
 import { getSearchParams } from "../../search/params.mjs";
 
 app.http("search", {
-  methods: ["GET"],
+  methods: ["GET", "OPTIONS"],
   authLevel: "anonymous",
   route: "search",
 
   handler: async (request, context) => {
     try {
+      if (request.method === "OPTIONS") {
+        return {
+          status: 204,
+          headers: corsHeaders(),
+        };
+      }
+
       const params = getSearchParams(new URL(request.url));
       if (!params.query) {
         return {
           status: 400,
+          headers: corsHeaders(),
           jsonBody: { error: "Missing query" },
         };
       }
@@ -20,6 +28,7 @@ app.http("search", {
       if (params.mode !== "nutrient") {
         return {
           status: 400,
+          headers: corsHeaders(),
           jsonBody: { error: "Azure search endpoint supports Næringssøk only." },
         };
       }
@@ -27,6 +36,7 @@ app.http("search", {
       const payload = await queryDatabricksNutrientRanking(params);
       return {
         status: 200,
+        headers: corsHeaders(),
         jsonBody: payload,
       };
     } catch (error) {
@@ -34,6 +44,7 @@ app.http("search", {
 
       return {
         status: 500,
+        headers: corsHeaders(),
         jsonBody: {
           error: error instanceof Error ? error.message : "Unknown error",
         },
@@ -41,3 +52,11 @@ app.http("search", {
     }
   },
 });
+
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": process.env.ALLOWED_ORIGIN || "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+}
