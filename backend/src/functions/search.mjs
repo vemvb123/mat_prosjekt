@@ -22,28 +22,28 @@ app.http("search", {
 
       const operation = await session.executeStatement(`
         SELECT
-    get_json_object(product_json, '$.title') AS product,
+        get_json_object(product_json, '$.title') AS product,
 
-    CAST(get_json_object(product_json, '$.comparePricePerUnit') AS DOUBLE)
-        AS price_per_kg,
+        CAST(get_json_object(product_json, '$.comparePricePerUnit') AS DOUBLE)
+            AS price_per_kg,
 
-    CAST(get_json_object(product_json, '$.nutritionalContent[6].amount') AS DOUBLE)
-        AS protein_per_100g,
+        CAST(get_json_object(product_json, '$.nutritionalContent[6].amount') AS DOUBLE)
+            AS protein_per_100g,
 
-    ROUND(
-        CAST(get_json_object(product_json, '$.nutritionalContent[6].amount') AS DOUBLE) * 10
+        ROUND(
+            CAST(get_json_object(product_json, '$.nutritionalContent[6].amount') AS DOUBLE) * 10
         /
         CAST(get_json_object(product_json, '$.comparePricePerUnit') AS DOUBLE),
         2
     ) AS protein_per_nok
 
-FROM products
+    FROM products
 
-WHERE get_json_object(product_json, '$.compareUnit') = 'kg'
+    WHERE get_json_object(product_json, '$.compareUnit') = 'kg'
 
-ORDER BY protein_per_nok DESC
+    ORDER BY protein_per_nok DESC
 
-LIMIT 10;
+    LIMIT 10;
         
         `,
         { runAsync: true }

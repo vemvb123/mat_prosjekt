@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchSearchResults } from "../lib/api";
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 10;
 
 function useSearchResults(route) {
   const [state, setState] = useState({

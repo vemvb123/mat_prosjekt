@@ -5,12 +5,12 @@ import { writeJson } from "./http/response.mjs";
 import { serveStatic } from "./http/static.mjs";
 import { handleSearchRequest } from "./routes/search.mjs";
 
-const server = createServer((request, response) => {
+const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${host}:${port}`);
 
   try {
     if (request.method === "GET" && url.pathname === "/api/search") {
-      handleSearchRequest(url, response);
+      await handleSearchRequest(url, response);
       return;
     }
 

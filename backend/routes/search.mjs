@@ -1,9 +1,8 @@
 import { writeJson } from "../http/response.mjs";
+import { queryDatabricksNutrientRanking } from "../search/databricks-nutrients.mjs";
 import { getSearchParams } from "../search/params.mjs";
-import { queryNutrientRanking } from "../search/nutrients.mjs";
-import { queryProductSearch } from "../search/products.mjs";
 
-function handleSearchRequest(url, response) {
+async function handleSearchRequest(url, response) {
   const params = getSearchParams(url);
   if (!params.query) {
     writeJson(response, 400, { error: "Missing query" });
@@ -11,10 +10,15 @@ function handleSearchRequest(url, response) {
   }
 
   const payload = params.mode === "nutrient"
-    ? queryNutrientRanking(params)
-    : queryProductSearch(params);
+    ? await queryDatabricksNutrientRanking(params)
+    : await queryProductSearch(params);
 
   writeJson(response, 200, payload);
+}
+
+async function queryProductSearch(params) {
+  const module = await import("../search/products.mjs");
+  return module.queryProductSearch(params);
 }
 
 export { handleSearchRequest };
