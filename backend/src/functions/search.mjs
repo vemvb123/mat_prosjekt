@@ -1,7 +1,6 @@
 import { app } from "@azure/functions";
-import pkg from "@databricks/sql";
-
-const { DBSQLClient } = pkg;
+import { queryDatabricksNutrientRanking } from "../../search/databricks-nutrients.mjs";
+import { getSearchParams } from "../../search/params.mjs";
 
 app.http("search", {
   methods: ["GET"],
@@ -9,74 +8,36 @@ app.http("search", {
   route: "search",
 
   handler: async (request, context) => {
-    const client = new DBSQLClient();
-
     try {
-      await client.connect({
-        host: process.env.DATABRICKS_SERVER_HOSTNAME,
-        path: process.env.DATABRICKS_HTTP_PATH,
-        token: process.env.DATABRICKS_TOKEN
-      });
+      const params = getSearchParams(new URL(request.url));
+      if (!params.query) {
+        return {
+          status: 400,
+          jsonBody: { error: "Missing query" },
+        };
+      }
 
-      const session = await client.openSession();
+      if (params.mode !== "nutrient") {
+        return {
+          status: 400,
+          jsonBody: { error: "Azure search endpoint supports Næringssøk only." },
+        };
+      }
 
-      const operation = await session.executeStatement(`
-        SELECT
-        get_json_object(product_json, '$.title') AS product,
-
-        CAST(get_json_object(product_json, '$.comparePricePerUnit') AS DOUBLE)
-            AS price_per_kg,
-
-        CAST(get_json_object(product_json, '$.nutritionalContent[6].amount') AS DOUBLE)
-            AS protein_per_100g,
-
-        ROUND(
-            CAST(get_json_object(product_json, '$.nutritionalContent[6].amount') AS DOUBLE) * 10
-        /
-        CAST(get_json_object(product_json, '$.comparePricePerUnit') AS DOUBLE),
-        2
-    ) AS protein_per_nok
-
-    FROM products
-
-    WHERE get_json_object(product_json, '$.compareUnit') = 'kg'
-
-    ORDER BY protein_per_nok DESC
-
-    LIMIT 10;
-        
-        `,
-        { runAsync: true }
-      );
-
-      const result = await operation.fetchAll();
-
-      await operation.close();
-      await session.close();
-      await client.close();
-
+      const payload = await queryDatabricksNutrientRanking(params);
       return {
         status: 200,
-        jsonBody: {
-          ok: true,
-          databricks: result
-        }
+        jsonBody: payload,
       };
-
     } catch (error) {
-      context.error("Databricks connection failed:", error);
-
-      try {
-        await client.close();
-      } catch {}
+      context.error("Databricks nutrient search failed:", error);
 
       return {
         status: 500,
         jsonBody: {
-          ok: false,
-          error: error instanceof Error ? error.message : "Unknown error"
-        }
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
       };
     }
-  }
+  },
 });
