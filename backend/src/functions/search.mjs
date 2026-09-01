@@ -20,8 +20,32 @@ app.http("search", {
 
       const session = await client.openSession();
 
-      const operation = await session.executeStatement(
-        "SELECT 1 AS test_value",
+      const operation = await session.executeStatement(`
+        SELECT
+    get_json_object(product_json, '$.title') AS product,
+
+    CAST(get_json_object(product_json, '$.comparePricePerUnit') AS DOUBLE)
+        AS price_per_kg,
+
+    CAST(get_json_object(product_json, '$.nutritionalContent[6].amount') AS DOUBLE)
+        AS protein_per_100g,
+
+    ROUND(
+        CAST(get_json_object(product_json, '$.nutritionalContent[6].amount') AS DOUBLE) * 10
+        /
+        CAST(get_json_object(product_json, '$.comparePricePerUnit') AS DOUBLE),
+        2
+    ) AS protein_per_nok
+
+FROM products
+
+WHERE get_json_object(product_json, '$.compareUnit') = 'kg'
+
+ORDER BY protein_per_nok DESC
+
+LIMIT 10;
+        
+        `,
         { runAsync: true }
       );
 
