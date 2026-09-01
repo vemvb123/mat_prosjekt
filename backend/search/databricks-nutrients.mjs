@@ -118,8 +118,34 @@ function rowValue(row, key) {
   return row[key] ?? row[key.toUpperCase()] ?? row[key.toLowerCase()] ?? null;
 }
 
+function imageUrlFromPath(imagePath) {
+  if (!imagePath) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(imagePath)) {
+    return imagePath;
+  }
+
+  return `https://bilder.ngdata.no/${String(imagePath).replace(/^\/+/, "")}/large.jpg`;
+}
+
+function productUrlFromPath(productUrl, chainKey) {
+  if (!productUrl) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(productUrl)) {
+    return productUrl;
+  }
+
+  const chainHost = chainKey === "spar" ? "https://spar.no" : "https://meny.no";
+  return `${chainHost}${String(productUrl).startsWith("/") ? "" : "/"}${productUrl}`;
+}
+
 function productFromDatabricksRow(row, nutrient) {
-  const productUrl = rowValue(row, "product_url") || "";
+  const chainKey = rowValue(row, "chain_key") || "";
+  const productUrl = productUrlFromPath(rowValue(row, "product_url") || "", chainKey);
   const name = rowValue(row, "name") || rowValue(row, "Product") || "Ukjent produkt";
 
   return {
@@ -127,7 +153,7 @@ function productFromDatabricksRow(row, nutrient) {
     Name: name,
     Brand: rowValue(row, "brand") || "",
     ProductUrl: productUrl,
-    ImageUrl: rowValue(row, "image_url") || "",
+    ImageUrl: imageUrlFromPath(rowValue(row, "image_url") || rowValue(row, "image_path")),
     Price: Number(rowValue(row, "price") || 0),
     PricePerCompareUnit: Number(rowValue(row, "price_per_compare_unit") || 0),
     CompareUnit: rowValue(row, "compare_unit") || "",
@@ -135,7 +161,7 @@ function productFromDatabricksRow(row, nutrient) {
     Subtitle: rowValue(row, "subtitle") || "",
     StoreName: rowValue(row, "store_name") || "",
     ChainName: rowValue(row, "chain_name") || "",
-    ChainKey: rowValue(row, "chain_key") || "",
+    ChainKey: chainKey,
     NutrientName: nutrient.displayName,
     NutrientUnit: rowValue(row, "nutrient_unit") || nutrient.unit,
     NutrientAmountPer100g: Number(rowValue(row, "nutrient_per_100g") || 0),
@@ -191,9 +217,14 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
         SELECT
           COALESCE(get_json_object(product_json, '$.title'), get_json_object(product_json, '$.name')) AS name,
           COALESCE(get_json_object(product_json, '$.brand'), get_json_object(product_json, '$.brandName')) AS brand,
-          COALESCE(get_json_object(product_json, '$.url'), get_json_object(product_json, '$.productUrl')) AS product_url,
-          COALESCE(get_json_object(product_json, '$.imageUrl'), get_json_object(product_json, '$.image.url')) AS image_url,
-          CAST(COALESCE(get_json_object(product_json, '$.price'), get_json_object(product_json, '$.currentPrice')) AS DOUBLE) AS price,
+          COALESCE(get_json_object(product_json, '$.slugifiedUrl'), get_json_object(product_json, '$.url'), get_json_object(product_json, '$.productUrl')) AS product_url,
+          COALESCE(get_json_object(product_json, '$.imagePath'), get_json_object(product_json, '$.imageUrl'), get_json_object(product_json, '$.image.url')) AS image_path,
+          CAST(COALESCE(
+            get_json_object(product_json, '$.pricePerUnit'),
+            get_json_object(product_json, '$.calcPricePerUnit'),
+            get_json_object(product_json, '$.price'),
+            get_json_object(product_json, '$.currentPrice')
+          ) AS DOUBLE) AS price,
           CAST(get_json_object(product_json, '$.comparePricePerUnit') AS DOUBLE) AS price_per_compare_unit,
           get_json_object(product_json, '$.compareUnit') AS compare_unit,
           COALESCE(get_json_object(product_json, '$.subtitle'), get_json_object(product_json, '$.packageSize')) AS subtitle,
