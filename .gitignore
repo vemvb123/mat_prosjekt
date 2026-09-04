@@ -7,3 +7,5 @@ frontend/dist/
 .env
 frontend/.env
 backend/.env
+
+.todo.md
