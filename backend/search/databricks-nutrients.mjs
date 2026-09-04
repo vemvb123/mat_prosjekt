@@ -9,6 +9,9 @@ const NUTRIENTS = [
     displayName: "Energi",
     unit: "kj",
     index: 0,
+    amountColumn: "energy_amount",
+    packageColumn: "energy_per_package",
+    nokColumn: "energy_per_nok",
     aliases: ["energi", "energy", "kj"],
   },
   {
@@ -16,6 +19,9 @@ const NUTRIENTS = [
     displayName: "Kalorier",
     unit: "kcal",
     index: 1,
+    amountColumn: "calories_amount",
+    packageColumn: "calories_per_package",
+    nokColumn: "calories_per_nok",
     aliases: ["kalorier", "kalori", "calories", "calorie", "kcal"],
   },
   {
@@ -23,6 +29,9 @@ const NUTRIENTS = [
     displayName: "Fett",
     unit: "g",
     index: 2,
+    amountColumn: "fat_amount",
+    packageColumn: "fat_per_package",
+    nokColumn: "fat_per_nok",
     aliases: ["fett", "fat"],
   },
   {
@@ -30,6 +39,9 @@ const NUTRIENTS = [
     displayName: "Mettet fett",
     unit: "g",
     index: 3,
+    amountColumn: "saturated_fat_amount",
+    packageColumn: "saturated_fat_per_package",
+    nokColumn: "saturated_fat_per_nok",
     aliases: ["mettet fett", "saturated fat", "saturates"],
   },
   {
@@ -37,6 +49,9 @@ const NUTRIENTS = [
     displayName: "Enumettet fett",
     unit: "g",
     index: null,
+    amountColumn: null,
+    packageColumn: null,
+    nokColumn: null,
     aliases: ["enumettet fett", "monounsaturated fat"],
   },
   {
@@ -44,6 +59,9 @@ const NUTRIENTS = [
     displayName: "Flerumettet fett",
     unit: "g",
     index: null,
+    amountColumn: null,
+    packageColumn: null,
+    nokColumn: null,
     aliases: ["flerumettet fett", "polyunsaturated fat"],
   },
   {
@@ -51,6 +69,9 @@ const NUTRIENTS = [
     displayName: "Karbohydrater",
     unit: "g",
     index: 4,
+    amountColumn: "carbohydrates_amount",
+    packageColumn: "carbohydrates_per_package",
+    nokColumn: "carbohydrates_per_nok",
     aliases: ["karbohydrater", "karbohydrat", "carbohydrates", "carbs"],
   },
   {
@@ -58,6 +79,9 @@ const NUTRIENTS = [
     displayName: "Sukkerarter",
     unit: "g",
     index: 5,
+    amountColumn: "sugars_amount",
+    packageColumn: "sugars_per_package",
+    nokColumn: "sugars_per_nok",
     aliases: ["sukkerarter", "sukker", "sugars", "sugar"],
   },
   {
@@ -65,6 +89,9 @@ const NUTRIENTS = [
     displayName: "Sukkeralkoholer",
     unit: "g",
     index: null,
+    amountColumn: null,
+    packageColumn: null,
+    nokColumn: null,
     aliases: ["sukkeralkoholer", "sugar alcohols", "polyols"],
   },
   {
@@ -72,6 +99,9 @@ const NUTRIENTS = [
     displayName: "Kostfiber",
     unit: "g",
     index: null,
+    amountColumn: null,
+    packageColumn: null,
+    nokColumn: null,
     aliases: ["kostfiber", "fiber", "fibre"],
   },
   {
@@ -79,6 +109,9 @@ const NUTRIENTS = [
     displayName: "Protein",
     unit: "g",
     index: 6,
+    amountColumn: "protein_amount",
+    packageColumn: "protein_per_package",
+    nokColumn: "protein_per_nok",
     aliases: ["protein", "proteiner"],
   },
   {
@@ -86,6 +119,9 @@ const NUTRIENTS = [
     displayName: "Salt",
     unit: "g",
     index: 7,
+    amountColumn: "salt_amount",
+    packageColumn: "salt_per_package",
+    nokColumn: "salt_per_nok",
     aliases: ["salt"],
   },
 ];
@@ -118,34 +154,9 @@ function rowValue(row, key) {
   return row[key] ?? row[key.toUpperCase()] ?? row[key.toLowerCase()] ?? null;
 }
 
-function imageUrlFromPath(imagePath) {
-  if (!imagePath) {
-    return "";
-  }
-
-  if (/^https?:\/\//i.test(imagePath)) {
-    return imagePath;
-  }
-
-  return `https://bilder.ngdata.no/${String(imagePath).replace(/^\/+/, "")}/large.jpg`;
-}
-
-function productUrlFromPath(productUrl, chainKey) {
-  if (!productUrl) {
-    return "";
-  }
-
-  if (/^https?:\/\//i.test(productUrl)) {
-    return productUrl;
-  }
-
-  const chainHost = chainKey === "spar" ? "https://spar.no" : "https://meny.no";
-  return `${chainHost}${String(productUrl).startsWith("/") ? "" : "/"}${productUrl}`;
-}
-
 function productFromDatabricksRow(row, nutrient) {
   const chainKey = rowValue(row, "chain_key") || "";
-  const productUrl = productUrlFromPath(rowValue(row, "product_url") || "", chainKey);
+  const productUrl = rowValue(row, "website_url") || "";
   const name = rowValue(row, "name") || rowValue(row, "Product") || "Ukjent produkt";
 
   return {
@@ -153,7 +164,7 @@ function productFromDatabricksRow(row, nutrient) {
     Name: name,
     Brand: rowValue(row, "brand") || "",
     ProductUrl: productUrl,
-    ImageUrl: imageUrlFromPath(rowValue(row, "image_url") || rowValue(row, "image_path")),
+    ImageUrl: rowValue(row, "image_url") || "",
     Price: Number(rowValue(row, "price") || 0),
     PricePerCompareUnit: Number(rowValue(row, "price_per_compare_unit") || 0),
     CompareUnit: rowValue(row, "compare_unit") || "",
@@ -163,7 +174,7 @@ function productFromDatabricksRow(row, nutrient) {
     ChainName: rowValue(row, "chain_name") || "",
     ChainKey: chainKey,
     NutrientName: nutrient.displayName,
-    NutrientUnit: rowValue(row, "nutrient_unit") || nutrient.unit,
+    NutrientUnit: nutrient.unit,
     NutrientAmountPer100g: Number(rowValue(row, "nutrient_per_100g") || 0),
     NutrientAmountPerPackage: Number(rowValue(row, "nutrient_per_package") || 0),
     NutrientAmountPerKrone: Number(rowValue(row, "nutrient_per_nok") || 0),
@@ -172,7 +183,7 @@ function productFromDatabricksRow(row, nutrient) {
 
 async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page, pageSize }) {
   const { nutrient, missingQueries } = findNutrient(query);
-  if (!nutrient || nutrient.index === null) {
+  if (!nutrient || !nutrient.amountColumn || !nutrient.packageColumn || !nutrient.nokColumn) {
     return {
       mode: "nutrient",
       query,
@@ -189,7 +200,7 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
         DisplayName: nutrient.displayName,
         Unit: nutrient.unit,
       } : null,
-      warnings: [nutrient ? `${nutrient.displayName} finnes ikke i nutritionalContent-dataene fra Databricks.` : `Fant ikke næringsstoff for: ${missingQueries.join(", ")}`],
+      warnings: [nutrient ? `${nutrient.displayName} finnes ikke i gold-tabellen fra Databricks.` : `Fant ikke næringsstoff for: ${missingQueries.join(", ")}`],
       missingQueries,
       bestItem: null,
       items: [],
@@ -201,8 +212,6 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
   const client = new DBSQLClient();
   const offset = (page - 1) * pageSize;
   const chainList = chains.map((chain) => `'${chain.replaceAll("'", "''")}'`).join(",");
-  const nutrientPath = `$.nutritionalContent[${nutrient.index}].amount`;
-  const nutrientUnitPath = `$.nutritionalContent[${nutrient.index}].unit`;
 
   try {
     await client.connect({
@@ -213,39 +222,28 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
 
     const session = await client.openSession();
     const operation = await session.executeStatement(`
-      WITH parsed AS (
+      WITH scored AS (
         SELECT
-          COALESCE(get_json_object(product_json, '$.title'), get_json_object(product_json, '$.name')) AS name,
-          COALESCE(get_json_object(product_json, '$.brand'), get_json_object(product_json, '$.brandName')) AS brand,
-          COALESCE(get_json_object(product_json, '$.slugifiedUrl'), get_json_object(product_json, '$.url'), get_json_object(product_json, '$.productUrl')) AS product_url,
-          COALESCE(get_json_object(product_json, '$.imagePath'), get_json_object(product_json, '$.imageUrl'), get_json_object(product_json, '$.image.url')) AS image_path,
-          CAST(COALESCE(
-            get_json_object(product_json, '$.pricePerUnit'),
-            get_json_object(product_json, '$.calcPricePerUnit'),
-            get_json_object(product_json, '$.price'),
-            get_json_object(product_json, '$.currentPrice')
-          ) AS DOUBLE) AS price,
-          CAST(get_json_object(product_json, '$.comparePricePerUnit') AS DOUBLE) AS price_per_compare_unit,
-          get_json_object(product_json, '$.compareUnit') AS compare_unit,
-          COALESCE(get_json_object(product_json, '$.subtitle'), get_json_object(product_json, '$.packageSize')) AS subtitle,
-          COALESCE(get_json_object(product_json, '$.description'), '') AS description,
-          COALESCE(get_json_object(product_json, '$.store.name'), get_json_object(product_json, '$.storeName')) AS store_name,
+          title AS name,
+          brand,
+          website_url,
+          image_url,
+          price_per_unit AS price,
+          compare_price_per_unit AS price_per_compare_unit,
+          compare_unit,
+          subtitle,
+          description,
           chain AS chain_name,
           LOWER(chain) AS chain_key,
-          CAST(get_json_object(product_json, '${nutrientPath}') AS DOUBLE) AS nutrient_per_100g,
-          COALESCE(get_json_object(product_json, '${nutrientUnitPath}'), '${nutrient.unit}') AS nutrient_unit
-        FROM products
-        WHERE get_json_object(product_json, '$.compareUnit') = '${compareUnit}'
-      ),
-      scored AS (
-        SELECT
-          *,
-          nutrient_per_100g * 10 AS nutrient_per_package,
-          ROUND((nutrient_per_100g * 10) / price_per_compare_unit, 2) AS nutrient_per_nok
-        FROM parsed
-        WHERE price_per_compare_unit > 0
-          AND nutrient_per_100g > 0
-          AND chain_key IN (${chainList})
+          ${nutrient.amountColumn} AS nutrient_per_100g,
+          ${nutrient.packageColumn} AS nutrient_per_package,
+          ${nutrient.nokColumn} AS nutrient_per_nok
+        FROM hybrid_test.default.product_nutritiens_gold
+        WHERE compare_unit = '${compareUnit}'
+          AND compare_price_per_unit > 0
+          AND ${nutrient.amountColumn} > 0
+          AND ${nutrient.nokColumn} > 0
+          AND LOWER(chain) IN (${chainList})
       ),
       counted AS (
         SELECT *, COUNT(*) OVER () AS total
