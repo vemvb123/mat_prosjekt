@@ -1,4 +1,5 @@
 import { writeJson } from "../http/response.mjs";
+import { buildCacheKey, withJsonCache } from "../cache/redis.mjs";
 import { queryDatabricksNutrientRanking } from "../search/databricks-nutrients.mjs";
 import { getSearchParams } from "../search/params.mjs";
 
@@ -10,7 +11,7 @@ async function handleSearchRequest(url, response) {
   }
 
   const payload = params.mode === "nutrient"
-    ? await queryDatabricksNutrientRanking(params)
+    ? await withJsonCache(buildCacheKey("search", params), () => queryDatabricksNutrientRanking(params))
     : await queryProductSearch(params);
 
   writeJson(response, 200, payload, corsHeaders());

@@ -1,4 +1,5 @@
 import { app } from "@azure/functions";
+import { buildCacheKey, withJsonCache } from "../../cache/redis.mjs";
 import { queryDatabricksNutrientRanking } from "../../search/databricks-nutrients.mjs";
 import { getSearchParams } from "../../search/params.mjs";
 
@@ -33,7 +34,8 @@ app.http("search", {
         };
       }
 
-      const payload = await queryDatabricksNutrientRanking(params);
+      const cacheKey = buildCacheKey("search", params);
+      const payload = await withJsonCache(cacheKey, () => queryDatabricksNutrientRanking(params), context);
       return {
         status: 200,
         headers: corsHeaders(),
