@@ -184,17 +184,25 @@ a {
 }
 
 .nutrient-picker label {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 16px auto;
   align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
+  justify-content: start;
+  justify-items: start;
+  column-gap: 8px;
+  width: 160px;
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 7px 12px 7px 10px;
+  padding: 7px 12px 7px 14px;
   background: #fffdf8;
   color: var(--muted);
   white-space: nowrap;
+}
+
+.nutrient-picker input {
+  width: 14px;
+  height: 14px;
 }
 
 .results {
