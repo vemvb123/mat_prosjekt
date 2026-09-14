@@ -4,10 +4,15 @@ Mat prisfinner er en React- og Node-basert søkeapp for norske dagligvarer.
 
 Appen har to søkemoduser:
 
-- **Produktsøk**: søker etter et produktnavn og rangerer treff etter lavest `compare_price_per_unit`, altså billigst per kg/l.
+- **Produktsøk**: søker etter et produktnavn og rangerer treff billigst per kg/l.
 - **Næringssøk**: velger ett næringsstoff og rangerer produkter etter mest næring per krone.
 
 Backend leser fra en ferdig **gold-tabell**. Tabellen kan komme fra Databricks i Azure, eller fra en lokal SQL Server-container når man utvikler lokalt.
+
+Dette repoet inneholder koden for å hente data, og lage tabeller:
+
+https://github.com/vemvb123/mat-prosjekt-databricks
+
 
 ## Arkitektur
 
@@ -17,7 +22,7 @@ Frontend React/Vite
 Backend Node/Azure Function
   -> optional Redis cache
   -> Databricks SQL warehouse eller lokal SQL Server
-  -> product_nutritiens_gold
+  -> gold tabell
 ```
 
 Gold-tabellen forventes å ha ferdig beregnede kolonner som:
@@ -40,9 +45,8 @@ protein_per_nok
 ...
 ```
 
-Poenget er at applikasjonen ikke skal parse rå JSON eller bygge URL-er i runtime. Den skal bare filtrere, rangere og paginere.
 
-## Viktige filer
+## Noen viktige filer
 
 ### Backend
 
@@ -163,9 +167,6 @@ Etterpå må du importere data til:
 dbo.product_nutritiens_gold
 ```
 
-Dataene må ha samme kolonner som gold-tabellen i Databricks. Typisk flyt er å
-eksportere gold-tabellen fra Databricks og importere den i SQL Server med Azure
-Data Studio, SQL Server Management Studio, `bcp`, eller et eget importscript.
 
 ### 4. Start backend i lokal modus
 
