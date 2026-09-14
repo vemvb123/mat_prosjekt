@@ -14,6 +14,26 @@ Dette repoet inneholder koden for å hente data, og lage tabeller:
 https://github.com/vemvb123/mat-prosjekt-databricks
 
 
+# Bilder fra nettsiden
+
+Man kan søke etter billigste produkter for en viss type næringsinnhold:
+
+<img width="1181" height="482" alt="image" src="https://github.com/user-attachments/assets/d6989a86-1cb4-46ea-bf16-6320cb00fd98" />
+
+Resultatene kan se slik ut. De viser rangert de billigste produktene for et visst næringsinnhold, i dette tilfellet protein.
+Altså, rangert ut i fra hvor mye protein man får for pengene.
+
+<img width="1146" height="887" alt="image" src="https://github.com/user-attachments/assets/c1b87a5a-0188-4b87-877f-28843c3e711e" />
+
+
+Man kan også søke etter produkter. For eksempel søke etter hvilket produkt som har sjokolade i seg, som gir mest mat for pengene.
+
+<img width="1162" height="947" alt="image" src="https://github.com/user-attachments/assets/8760f6da-056d-47d5-aea6-50a09d0caf0b" />
+
+
+
+
+
 ## Arkitektur
 
 ```text
