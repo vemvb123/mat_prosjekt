@@ -6,6 +6,7 @@
   "main": "src/functions/*.mjs",
   "scripts": {
     "dev": "node server.mjs",
+    "dev:local": "node server.mjs --local-sql",
     "dev:local-sql": "node server.mjs --local-sql",
     "start": "func start"
   },

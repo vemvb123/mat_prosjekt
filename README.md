@@ -105,6 +105,120 @@ cd ../frontend
 npm install
 ```
 
+## Kjøre hele prosjektet lokalt
+
+Lokal modus bruker:
+
+- SQL Server i Docker for `product_nutritiens_gold`
+- Redis i Docker for cache
+- Node-backend på `http://127.0.0.1:3001`
+- Vite-frontend på `http://127.0.0.1:5173`
+
+### 1. Lag lokale env-filer
+
+Kopier eksempel-filene:
+
+```bash
+cp backend/.env.local.example backend/.env.local
+cp frontend/.env.local.example frontend/.env.local
+```
+
+Standardverdiene matcher `docker-compose.local.yml`, så du trenger normalt ikke
+endre noe bare for lokal utvikling.
+
+### 2. Start SQL Server og Redis
+
+Fra prosjektroten:
+
+```bash
+docker compose -f docker-compose.local.yml --env-file backend/.env.local up -d
+```
+
+Dette starter:
+
+```text
+localhost:1433  SQL Server
+localhost:6379  Redis
+```
+
+### 3. Opprett gold-tabellen lokalt
+
+Kjør SQL-skjemaet i `backend/sql/product_nutritiens_gold.sql` mot den lokale SQL
+Server-databasen.
+
+For eksempel med `sqlcmd` hvis du har det installert lokalt:
+
+```bash
+sqlcmd \
+  -S localhost,1433 \
+  -U sa \
+  -P Your_strong_password123 \
+  -C \
+  -i backend/sql/product_nutritiens_gold.sql
+```
+
+Etterpå må du importere data til:
+
+```text
+dbo.product_nutritiens_gold
+```
+
+Dataene må ha samme kolonner som gold-tabellen i Databricks. Typisk flyt er å
+eksportere gold-tabellen fra Databricks og importere den i SQL Server med Azure
+Data Studio, SQL Server Management Studio, `bcp`, eller et eget importscript.
+
+### 4. Start backend i lokal modus
+
+```bash
+cd backend
+npm run dev:local
+```
+
+Dette laster `backend/.env.local`, bruker SQL Server som datakilde og Redis som
+cache.
+
+Sjekk at backend bruker lokal SQL Server:
+
+```bash
+curl http://127.0.0.1:3001/api/health
+```
+
+Forventet respons:
+
+```json
+{
+  "ok": true,
+  "goldQueryBackend": "sqlserver"
+}
+```
+
+### 5. Start frontend
+
+I en ny terminal:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Åpne:
+
+```text
+http://127.0.0.1:5173
+```
+
+### Stoppe lokal infrastruktur
+
+```bash
+docker compose -f docker-compose.local.yml --env-file backend/.env.local down
+```
+
+Hvis du også vil slette SQL Server- og Redis-dataene:
+
+```bash
+docker compose -f docker-compose.local.yml --env-file backend/.env.local down -v
+```
+
 ## Kjøre med Databricks
 
 Dette er default for backend.
@@ -145,18 +259,18 @@ VITE_API_BASE_URL=http://127.0.0.1:3001
 
 ## Kjøre lokalt med SQL Server i Docker
 
-Start en lokal SQL Server-container:
+Den anbefalte lokale måten er `docker-compose.local.yml`, som starter både SQL
+Server og Redis:
 
 ```bash
-docker run \
-  --name mat-prosjekt-sql \
-  -e "ACCEPT_EULA=Y" \
-  -e "MSSQL_SA_PASSWORD=Your_strong_password123" \
-  -p 1433:1433 \
-  -d mcr.microsoft.com/mssql/server:2022-latest
+docker compose -f docker-compose.local.yml --env-file backend/.env.local up -d
 ```
 
-Opprett database og importer/lag `dbo.product_nutritiens_gold` med samme kolonner som gold-tabellen i Databricks.
+Opprett database/tabell med:
+
+```text
+backend/sql/product_nutritiens_gold.sql
+```
 
 Sett miljøvariabler:
 
@@ -167,13 +281,15 @@ LOCAL_SQL_DATABASE=mat_prosjekt
 LOCAL_SQL_USER=sa
 LOCAL_SQL_PASSWORD=Your_strong_password123
 LOCAL_SQL_GOLD_TABLE=dbo.product_nutritiens_gold
+LOCAL_SQL_ENCRYPT=false
+LOCAL_SQL_TRUST_CERT=true
 ```
 
 Start backend i lokal SQL-modus:
 
 ```bash
 cd backend
-npm run dev:local-sql
+npm run dev:local
 ```
 
 Dette tilsvarer:
@@ -199,15 +315,18 @@ Forventet respons:
 
 ## Redis-cache
 
-Redis er valgfritt. Hvis Redis ikke er satt opp, kjører backend direkte mot Databricks/SQL Server.
+Redis er valgfritt, men lokal Docker Compose starter Redis automatisk slik at
+lokal kjøring bruker samme cacheflyt som Azure.
+
+Hvis Redis ikke er satt opp, kjører backend direkte mot Databricks/SQL Server.
 
 Miljøvariabler:
 
 ```env
 REDIS_HOST=...
-REDIS_PORT=10000
+REDIS_PORT=6379
 REDIS_PASSWORD=...
-REDIS_TLS=true
+REDIS_TLS=false
 ```
 
 Cache-nøkler inkluderer:

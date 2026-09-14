@@ -1,3 +1,4 @@
+import "./env.mjs";
 import { createServer } from "node:http";
 import { URL } from "node:url";
 import { host, port } from "./config.mjs";
