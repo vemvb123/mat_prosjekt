@@ -35,7 +35,7 @@ Man kan også søke etter produkter. For eksempel søke etter hvilket produkt so
 
 - Kan rangere produkter ut i fra hvor mye av et visst næringsinnhold de gir for pengene, ved bruk av Næringssøk
 - Kan rangere produkter ut i fra kg for pengene, som er assosiert med et produktsøk, ved bruk av Produktsøk
-- Dataen for matvarene oppdateres ukentlig, der via https://github.com/vemvb123/mat-prosjekt-databricks/tree/main henter data og oppdaterer tabeller
+- Dataen for matvarene oppdateres ukentlig, der https://github.com/vemvb123/mat-prosjekt-databricks/tree/main henter data og oppdaterer tabeller
 - Søkeresultater lagres i cache opp til neste gang produktene oppdateres
 - Man kan bla igjennom resultater på siden. Det lages cache for 10 sider om gangen
 
