@@ -2,7 +2,7 @@ import { GOLD_TABLE, executeGoldQuery, productFromGoldRow, rowValue, sqlString, 
 import { normalizeText } from "./text.mjs";
 
 function sqlLikePattern(value) {
-  return sqlString(`%${value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`);
+  return sqlString(`%${value}%`);
 }
 
 async function queryDatabricksProductSearch({ query, chains, compareUnit, page, pageSize }) {
@@ -14,10 +14,10 @@ async function queryDatabricksProductSearchWindow({ query, chains, compareUnit, 
   const tokenFilters = tokens.map((token) => {
     const pattern = sqlLikePattern(token);
     return `(
-      LOWER(title) LIKE ${pattern} ESCAPE '\\'
-      OR LOWER(brand) LIKE ${pattern} ESCAPE '\\'
-      OR LOWER(subtitle) LIKE ${pattern} ESCAPE '\\'
-      OR LOWER(description) LIKE ${pattern} ESCAPE '\\'
+      LOWER(title) LIKE ${pattern}
+      OR LOWER(brand) LIKE ${pattern}
+      OR LOWER(subtitle) LIKE ${pattern}
+      OR LOWER(description) LIKE ${pattern}
     )`;
   });
 
