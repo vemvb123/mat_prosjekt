@@ -6,11 +6,13 @@
   "main": "src/functions/*.mjs",
   "scripts": {
     "dev": "node server.mjs",
+    "dev:local-sql": "node server.mjs --local-sql",
     "start": "func start"
   },
   "dependencies": {
     "@azure/functions": "^4.16.2",
     "@databricks/sql": "^2.0.0",
+    "mssql": "^11.0.1",
     "redis": "^6.2.1"
   }
 }

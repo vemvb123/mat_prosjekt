@@ -1,5 +1,8 @@
 import SearchForm from "../components/SearchForm";
 
+// Forsiden.
+//
+// Den viser selve søkeopplevelsen direkte, uten en separat landingsside.
 function HomePage({ route, onSubmit }) {
   return (
     <>

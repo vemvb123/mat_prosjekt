@@ -1,14 +1,23 @@
 import { createClient } from "redis";
 
+// Redis-cache for søkeresultater.
+//
+// Filen inneholder all cache-logikk backend-rutene trenger:
+// - kobling mot Redis når miljøvariabler finnes
+// - stabile cache-nøkler for søk
+// - ukentlig utløp mandag kl. 03:00 norsk tid
+// - henting av ti sider om gangen, slik at paging føles raskere
 const DEFAULT_CACHE_TTL_SECONDS = 60 * 60;
 const PAGE_BLOCK_SIZE = 10;
 
 let clientPromise = null;
 
+// Redis er valgfritt. Hvis dette mangler, skal resten av appen fortsatt søke direkte.
 function isRedisConfigured() {
   return Boolean(process.env.REDIS_HOST && process.env.REDIS_PASSWORD);
 }
 
+// Oppretter Redis-klienten én gang og gjenbruker samme tilkobling videre.
 function getRedisClient() {
   if (!isRedisConfigured()) {
     return null;
@@ -42,6 +51,7 @@ function getRedisClient() {
   return clientPromise;
 }
 
+// Lager en cache-nøkkel som skiller på søkemodus, tekst, kjeder, enhet og side.
 function buildCacheKey(namespace, params) {
   const chains = [...params.chains].sort().join(",");
   return [
@@ -55,6 +65,7 @@ function buildCacheKey(namespace, params) {
   ].join(":");
 }
 
+// Henter ukedag og klokkeslett for en dato i norsk tid.
 function osloDateParts(date) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Oslo",
@@ -67,10 +78,12 @@ function osloDateParts(date) {
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));
 }
 
+// Regner ut hvor lenge en cache-verdi kan leve før neste mandag kl. 03:00.
 function secondsUntilNextWeeklyReset(now = new Date()) {
   const start = now.getTime();
   const minuteMs = 60 * 1000;
 
+  // Vi søker minutt for minutt for å slippe kantfeil rundt sommertid/vintertid.
   for (let minutes = 1; minutes <= 8 * 24 * 60; minutes += 1) {
     const candidate = new Date(start + minutes * minuteMs);
     const parts = osloDateParts(candidate);
@@ -82,6 +95,7 @@ function secondsUntilNextWeeklyReset(now = new Date()) {
   return DEFAULT_CACHE_TTL_SECONDS;
 }
 
+// Leser og parser JSON fra Redis. Returnerer null ved cache miss eller uten Redis.
 async function getCachedJson(key) {
   const client = await getRedisClient();
   if (!client) {
@@ -92,6 +106,7 @@ async function getCachedJson(key) {
   return cached ? JSON.parse(cached) : null;
 }
 
+// Lagrer JSON i Redis med TTL. Verdien må være JSON-serialiserbar.
 async function setCachedJson(key, value, ttlSeconds = Number(process.env.REDIS_CACHE_TTL_SECONDS || DEFAULT_CACHE_TTL_SECONDS)) {
   const client = await getRedisClient();
   if (!client) {
@@ -103,10 +118,12 @@ async function setCachedJson(key, value, ttlSeconds = Number(process.env.REDIS_C
   });
 }
 
+// Finn første side i blokken på ti sider som den forespurte siden tilhører.
 function pageBlockStart(page, blockSize = PAGE_BLOCK_SIZE) {
   return Math.floor((page - 1) / blockSize) * blockSize + 1;
 }
 
+// Bygger vanlig side-respons fra et større vindu med søkeresultater.
 function pageFromWindow(windowPayload, page, pageSize, items) {
   return {
     ...windowPayload,
@@ -117,6 +134,11 @@ function pageFromWindow(windowPayload, page, pageSize, items) {
   };
 }
 
+// Cache-wrapper for paginerte søk.
+//
+// Når brukeren ber om én side, henter vi ti sider fra databasen, splitter dem opp
+// og legger hver side i Redis. Neste paging-klikk kan derfor ofte svares direkte
+// fra cache.
 async function withPagedJsonCache(params, loadWindow, context = console) {
   const requestedKey = buildCacheKey("search", params);
   try {
@@ -139,6 +161,7 @@ async function withPagedJsonCache(params, loadWindow, context = console) {
   const ttlSeconds = secondsUntilNextWeeklyReset();
   const pages = [];
 
+  // Del databasevinduet tilbake i samme sideformat som frontend forventer.
   for (let index = 0; index < PAGE_BLOCK_SIZE; index += 1) {
     const page = blockStart + index;
     const start = index * params.pageSize;
@@ -164,6 +187,7 @@ async function withPagedJsonCache(params, loadWindow, context = console) {
   };
 }
 
+// Enkel cache-wrapper for ikke-paginerte JSON-responser.
 async function withJsonCache(key, loadValue, context = console) {
   try {
     const cached = await getCachedJson(key);

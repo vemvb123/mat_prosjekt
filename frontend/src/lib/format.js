@@ -1,3 +1,9 @@
+// Formateringshjelpere for UI.
+//
+// Alle tall og datoer går gjennom disse, så produktkort og resultater får samme
+// norske visning overalt.
+
+// Formaterer kroner/tall med to desimaler.
 function formatNok(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "-";
@@ -9,6 +15,7 @@ function formatNok(value) {
   }).format(Number(value));
 }
 
+// Formaterer generiske næringstall med to desimaler.
 function formatNumber(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "-";
@@ -20,6 +27,7 @@ function formatNumber(value) {
   }).format(Number(value));
 }
 
+// Formaterer datoer hvis vi senere viser snapshot- eller historikkdatoer igjen.
 function formatDate(value) {
   if (!value) {
     return "";

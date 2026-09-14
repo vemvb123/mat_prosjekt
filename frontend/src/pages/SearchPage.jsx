@@ -4,7 +4,12 @@ import SearchForm from "../components/SearchForm";
 import StatusPanel from "../components/StatusPanel";
 import { useSearchResults } from "../hooks/useSearchResults";
 
+// Resultatside for både Produktsøk og Næringssøk.
+//
+// Siden viser samme skjema øverst, henter resultater basert på URL-state og
+// velger riktig resultatkomponent ut fra aktiv søkemodus.
 function SearchPage({ route, onSubmit, onPageChange }) {
+  // Hooken håndterer loading/error/success og selve API-kallet.
   const searchState = useSearchResults(route);
   const result = searchState.data;
 

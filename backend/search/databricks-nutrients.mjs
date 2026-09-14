@@ -1,12 +1,19 @@
-import { GOLD_TABLE, executeGoldQuery, productFromGoldRow, rowValue, sqlString, sqlStringList } from "./databricks-gold.mjs";
+import { executeGoldQuery, goldTableName, paginationClause, productFromGoldRow, rowValue, sqlString, sqlStringList } from "./databricks-gold.mjs";
 import { normalizeText, splitNutrientQueries } from "./text.mjs";
 
+// Næringssøk mot gold-tabellen.
+//
+// Gold-tabellen inneholder ferdig utregnede verdier per 100 g, per pakke og per
+// krone. Denne filen velger riktig næringskolonne og rangerer produkter etter
+// mest næring per krone.
+
+// Liste over næringer appen faktisk kan søke på.
+// Hver entry peker på kolonnene som allerede finnes i product_nutritiens_gold.
 const NUTRIENTS = [
   {
     name: "energy",
     displayName: "Energi",
     unit: "kj",
-    index: 0,
     amountColumn: "energy_amount",
     packageColumn: "energy_per_package",
     nokColumn: "energy_per_nok",
@@ -16,7 +23,6 @@ const NUTRIENTS = [
     name: "calories",
     displayName: "Kalorier",
     unit: "kcal",
-    index: 1,
     amountColumn: "calories_amount",
     packageColumn: "calories_per_package",
     nokColumn: "calories_per_nok",
@@ -26,7 +32,6 @@ const NUTRIENTS = [
     name: "fat",
     displayName: "Fett",
     unit: "g",
-    index: 2,
     amountColumn: "fat_amount",
     packageColumn: "fat_per_package",
     nokColumn: "fat_per_nok",
@@ -36,37 +41,15 @@ const NUTRIENTS = [
     name: "saturated_fat",
     displayName: "Mettet fett",
     unit: "g",
-    index: 3,
     amountColumn: "saturated_fat_amount",
     packageColumn: "saturated_fat_per_package",
     nokColumn: "saturated_fat_per_nok",
     aliases: ["mettet fett", "saturated fat", "saturates"],
   },
   {
-    name: "monounsaturated_fat",
-    displayName: "Enumettet fett",
-    unit: "g",
-    index: null,
-    amountColumn: null,
-    packageColumn: null,
-    nokColumn: null,
-    aliases: ["enumettet fett", "monounsaturated fat"],
-  },
-  {
-    name: "polyunsaturated_fat",
-    displayName: "Flerumettet fett",
-    unit: "g",
-    index: null,
-    amountColumn: null,
-    packageColumn: null,
-    nokColumn: null,
-    aliases: ["flerumettet fett", "polyunsaturated fat"],
-  },
-  {
     name: "carbohydrates",
     displayName: "Karbohydrater",
     unit: "g",
-    index: 4,
     amountColumn: "carbohydrates_amount",
     packageColumn: "carbohydrates_per_package",
     nokColumn: "carbohydrates_per_nok",
@@ -76,37 +59,15 @@ const NUTRIENTS = [
     name: "sugars",
     displayName: "Sukkerarter",
     unit: "g",
-    index: 5,
     amountColumn: "sugars_amount",
     packageColumn: "sugars_per_package",
     nokColumn: "sugars_per_nok",
     aliases: ["sukkerarter", "sukker", "sugars", "sugar"],
   },
   {
-    name: "sugar_alcohols",
-    displayName: "Sukkeralkoholer",
-    unit: "g",
-    index: null,
-    amountColumn: null,
-    packageColumn: null,
-    nokColumn: null,
-    aliases: ["sukkeralkoholer", "sugar alcohols", "polyols"],
-  },
-  {
-    name: "fiber",
-    displayName: "Kostfiber",
-    unit: "g",
-    index: null,
-    amountColumn: null,
-    packageColumn: null,
-    nokColumn: null,
-    aliases: ["kostfiber", "fiber", "fibre"],
-  },
-  {
     name: "protein",
     displayName: "Protein",
     unit: "g",
-    index: 6,
     amountColumn: "protein_amount",
     packageColumn: "protein_per_package",
     nokColumn: "protein_per_nok",
@@ -116,7 +77,6 @@ const NUTRIENTS = [
     name: "salt",
     displayName: "Salt",
     unit: "g",
-    index: 7,
     amountColumn: "salt_amount",
     packageColumn: "salt_per_package",
     nokColumn: "salt_per_nok",
@@ -124,6 +84,8 @@ const NUTRIENTS = [
   },
 ];
 
+// Finner næringen brukeren ba om. Frontend sender vanligvis name direkte, men
+// aliaser gjør backend robust hvis man senere åpner for tekstsøk igjen.
 function findNutrient(query) {
   const queries = splitNutrientQueries(query);
   for (const queryPart of queries.length > 0 ? queries : [query]) {
@@ -141,6 +103,7 @@ function findNutrient(query) {
   return { nutrient: null, missingQueries: queries.length > 0 ? queries : [query] };
 }
 
+// Mapper en gold-rad til produktformatet pluss næringsverdiene som UI viser.
 function productFromDatabricksRow(row, nutrient) {
   return {
     ...productFromGoldRow(row),
@@ -152,10 +115,12 @@ function productFromDatabricksRow(row, nutrient) {
   };
 }
 
+// Henter én side med produkter rangert etter valgt næring.
 async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page, pageSize }) {
   return queryDatabricksNutrientRankingWindow({ query, chains, compareUnit, page, pageSize }, pageSize, (page - 1) * pageSize);
 }
 
+// Henter et større vindu med næringstreff, brukt av Redis-cache for ti sider.
 async function queryDatabricksNutrientRankingWindow({ query, chains, compareUnit, page, pageSize }, limit, offset) {
   const { nutrient, missingQueries } = findNutrient(query);
   if (!nutrient || !nutrient.amountColumn || !nutrient.packageColumn || !nutrient.nokColumn) {
@@ -183,6 +148,8 @@ async function queryDatabricksNutrientRankingWindow({ query, chains, compareUnit
   }
 
   const chainList = sqlStringList(chains);
+  // Sorteringen bruker ferdig utregnet per-krone-kolonne, og lav pris brukes som
+  // tie-breaker når flere produkter gir like mye næring for pengene.
   const rows = await executeGoldQuery(`
       WITH scored AS (
         SELECT
@@ -200,7 +167,7 @@ async function queryDatabricksNutrientRankingWindow({ query, chains, compareUnit
           ${nutrient.amountColumn} AS nutrient_per_100g,
           ${nutrient.packageColumn} AS nutrient_per_package,
           ${nutrient.nokColumn} AS nutrient_per_nok
-        FROM ${GOLD_TABLE}
+        FROM ${goldTableName()}
         WHERE compare_unit = ${sqlString(compareUnit)}
           AND compare_price_per_unit > 0
           AND ${nutrient.amountColumn} > 0
@@ -214,10 +181,10 @@ async function queryDatabricksNutrientRankingWindow({ query, chains, compareUnit
       SELECT *
       FROM counted
       ORDER BY nutrient_per_nok DESC, price_per_compare_unit ASC, price ASC
-      LIMIT ${limit}
-      OFFSET ${offset}
+      ${paginationClause(limit, offset)}
     `);
 
+  // COUNT(*) OVER () ligger på hver rad, så første rad inneholder totalen.
   const items = rows.map((row) => productFromDatabricksRow(row, nutrient));
   const total = Number(rowValue(rows[0] || {}, "total") || 0);
 

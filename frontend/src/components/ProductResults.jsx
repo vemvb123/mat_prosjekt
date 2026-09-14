@@ -1,5 +1,11 @@
 import ProductCard from "./ProductCard";
 
+// Viser resultater for Produktsøk.
+//
+// Backend har allerede filtrert og sortert produktene etter lavest
+// sammenligningspris.
+
+// Pageren endrer bare side i URL; ny data hentes av useSearchResults.
 function Pager({ result, onPageChange }) {
   return (
     <div className="pager">
@@ -27,6 +33,7 @@ function Pager({ result, onPageChange }) {
 }
 
 function ProductResults({ result, onPageChange }) {
+  // Tomt resultat får en egen melding i stedet for et tomt grid.
   const products = result.items || [];
 
   if (products.length === 0) {

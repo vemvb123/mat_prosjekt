@@ -1,9 +1,15 @@
 import { formatNok } from "../lib/format";
 
+// Kompakt produktkort brukt av både produkt- og næringsresultater.
+//
+// Kortet viser felles produktdata og en valgfri metric-linje for næringssøk.
+
+// Viser kjedenavn som "Spar" og "Meny" selv om dataene kommer som små bokstaver.
 function titleCase(value) {
   return value ? `${value.slice(0, 1).toUpperCase()}${value.slice(1).toLowerCase()}` : "";
 }
 
+// Åpne produktside sender brukeren til kjedens søkeside for produktnavnet.
 function productSearchUrl(product) {
   const chainKey = (product.ChainKey || product.ChainName || "").toLowerCase();
   const host = chainKey === "spar" ? "https://spar.no" : "https://meny.no";
@@ -16,6 +22,7 @@ function productSearchUrl(product) {
 }
 
 function ProductCard({ product, metric = "" }) {
+  // StoreName er valgfritt; de fleste kort viser bare kjeden.
   const store = [titleCase(product.ChainName), product.StoreName].filter(Boolean).join(" | ");
   const productUrl = productSearchUrl(product);
 

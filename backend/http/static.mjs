@@ -3,6 +3,12 @@ import { extname, join, normalize } from "node:path";
 import { distDir } from "../config.mjs";
 import { writeText } from "./response.mjs";
 
+// Statisk filserver for den bygde Vite-frontenden.
+//
+// Den server vanlige assets fra frontend/dist og faller tilbake til index.html
+// når brukeren går direkte til en klientrute.
+
+// Velger Content-Type ut fra filendelse.
 function getMimeType(filePath) {
   switch (extname(filePath)) {
     case ".html":
@@ -16,6 +22,7 @@ function getMimeType(filePath) {
   }
 }
 
+// Server en fil fra dist-mappen, med beskyttelse mot path traversal.
 function serveStatic(pathname, response) {
   if (!existsSync(distDir)) {
     writeText(response, 404, "Frontend build mangler. Kjør 'npm run build' i frontend/.");
@@ -25,6 +32,7 @@ function serveStatic(pathname, response) {
   const requested = pathname === "/" ? "index.html" : pathname.slice(1);
   const filePath = normalize(join(distDir, requested));
   const safeRoot = normalize(distDir);
+  // Avvis stier som prøver å gå ut av frontend/dist.
   if (!filePath.startsWith(safeRoot)) {
     writeText(response, 400, "Ugyldig sti.");
     return;

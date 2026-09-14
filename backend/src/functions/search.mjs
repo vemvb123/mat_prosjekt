@@ -4,6 +4,10 @@ import { queryDatabricksNutrientRankingWindow } from "../../search/databricks-nu
 import { queryDatabricksProductSearchWindow } from "../../search/databricks-products.mjs";
 import { getSearchParams } from "../../search/params.mjs";
 
+// Azure Functions-entrypoint for /api/search i produksjon.
+//
+// Den deler søkemoduler, parameterparser og Redis-cache med lokal Node-server,
+// slik at lokal og deployet oppførsel er mest mulig lik.
 app.http("search", {
   methods: ["GET", "OPTIONS"],
   authLevel: "anonymous",
@@ -11,6 +15,7 @@ app.http("search", {
 
   handler: async (request, context) => {
     try {
+      // Nettleseren sender OPTIONS før enkelte kryss-origin-kall.
       if (request.method === "OPTIONS") {
         return {
           status: 204,
@@ -19,6 +24,7 @@ app.http("search", {
       }
 
       const params = getSearchParams(new URL(request.url));
+      // Frontend skal alltid sende q, men backend validerer likevel.
       if (!params.query) {
         return {
           status: 400,
@@ -29,6 +35,7 @@ app.http("search", {
 
       const payload = await withPagedJsonCache(
         params,
+        // Redis henter/cache-er ti sider av gangen. Søkemodulen velges ut fra mode.
         (blockStart, limit, offset) => params.mode === "nutrient"
           ? queryDatabricksNutrientRankingWindow({ ...params, page: blockStart }, limit, offset)
           : queryDatabricksProductSearchWindow({ ...params, page: blockStart }, limit, offset),
@@ -53,6 +60,7 @@ app.http("search", {
   },
 });
 
+// CORS-headere for frontend. ALLOWED_ORIGIN kan låse dette til eget domene.
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": process.env.ALLOWED_ORIGIN || "*",

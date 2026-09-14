@@ -1,3 +1,9 @@
+// Frontend API-klient.
+//
+// VITE_API_BASE_URL kan peke til Azure Functions i deploy eller lokal Node-server
+// i utvikling. Uten den brukes samme origin som frontend serveres fra.
+
+// Bygger URL med støtte for query-parametere som kan ha flere verdier, som chain.
 function buildApiUrl(path, params) {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
   const url = new URL(path, baseUrl);
@@ -18,15 +24,10 @@ function buildApiUrl(path, params) {
   return import.meta.env.VITE_API_BASE_URL ? url.toString() : `${url.pathname}${url.search}`;
 }
 
+// Henter JSON og gir tydelige feil hvis serveren svarer tomt eller med HTML/tekst.
 async function requestJson(url, options) {
   const response = await fetch(url, options);
   const raw = await response.text();
-  console.log("API response", {
-    url,
-    status: response.status,
-    ok: response.ok,
-    body: raw,
-  });
 
   if (!raw.trim()) {
     throw new Error("Serveren svarte tomt. Sjekk at Node-backenden kjører på port 3001.");
@@ -45,6 +46,7 @@ async function requestJson(url, options) {
   return data;
 }
 
+// Kaller backend sitt /api/search-endpoint med samme parameterkontrakt som route.
 function fetchSearchResults({ mode, query, chains, compareUnit, page, pageSize }) {
   return requestJson(
     buildApiUrl("/api/search", {

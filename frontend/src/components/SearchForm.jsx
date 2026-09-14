@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 
+// Søkskjema for både Produktsøk og Næringssøk.
+//
+// Produktsøk bruker et tekstfelt. Næringssøk bruker radio-knapper fordi backend
+// bare kan rangere næringene som finnes som ferdige kolonner i gold-tabellen.
+
+// Næringene må matche backend sin NUTRIENTS-liste.
 const NUTRIENT_OPTIONS = [
   { value: "energy", label: "Energi" },
   { value: "calories", label: "Kalorier" },
@@ -11,6 +17,7 @@ const NUTRIENT_OPTIONS = [
   { value: "salt", label: "Salt" },
 ];
 
+// Gjør gamle URL-er og label-verdier om til den stabile value-en backend forventer.
 function normalizeNutrientQuery(value) {
   const normalized = (value || "").toLowerCase().trim().replace(/\s+/g, "_");
   const match = NUTRIENT_OPTIONS.find((nutrient) => nutrient.value === normalized || nutrient.label.toLowerCase().replace(/\s+/g, "_") === normalized);
@@ -18,11 +25,13 @@ function normalizeNutrientQuery(value) {
 }
 
 function SearchForm({ route, onSubmit }) {
+  // Lokal state gjør at brukeren kan endre skjemaet uten å endre URL før submit.
   const [mode, setMode] = useState(route.mode);
   const [query, setQuery] = useState(route.query);
   const [chains, setChains] = useState(route.chains);
   const [compareUnit, setCompareUnit] = useState(route.compareUnit);
 
+  // Når browserhistorikk eller paging endrer route, synkroniseres skjemaet.
   useEffect(() => {
     setMode(route.mode);
     setQuery(route.mode === "nutrient" ? normalizeNutrientQuery(route.query) : route.query);
@@ -30,6 +39,7 @@ function SearchForm({ route, onSubmit }) {
     setCompareUnit(route.compareUnit);
   }, [route]);
 
+  // Minst én kjede må alltid være valgt, ellers ville søket bli tomt.
   function toggleChain(chainKey) {
     setChains((current) => {
       if (current.includes(chainKey)) {
@@ -41,6 +51,7 @@ function SearchForm({ route, onSubmit }) {
     });
   }
 
+  // Sender bare det backend trenger: modus, søketekst/næring, kjeder og enhet.
   function submit(event) {
     event.preventDefault();
     const submittedQuery = mode === "nutrient" ? query || NUTRIENT_OPTIONS[0].value : query.trim();
@@ -57,6 +68,7 @@ function SearchForm({ route, onSubmit }) {
     });
   }
 
+  // Ved modusbytte resettes query til riktig type input.
   function changeMode(nextMode) {
     setMode(nextMode);
     setQuery(nextMode === "nutrient" ? NUTRIENT_OPTIONS[0].value : "");

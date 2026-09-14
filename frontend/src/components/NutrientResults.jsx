@@ -1,6 +1,12 @@
 import ProductCard from "./ProductCard";
 import { formatNumber } from "../lib/format";
 
+// Viser resultater for Næringssøk.
+//
+// Backend har allerede rangert produktene etter valgt næring per krone. Denne
+// komponenten viser listen, eventuelle advarsler og paging-kontroller.
+
+// Enkel pager som bare ber App endre URL-en til forrige/neste side.
 function Pager({ result, onPageChange }) {
   return (
     <div className="pager">
@@ -28,6 +34,7 @@ function Pager({ result, onPageChange }) {
 }
 
 function NutrientResults({ result, onPageChange }) {
+  // API-et kan returnere tomme arrays/verdier, så UI bruker trygge defaults.
   const products = result.items || [];
   const nutrient = result.nutrient;
   const warnings = result.warnings || [];
@@ -53,6 +60,7 @@ function NutrientResults({ result, onPageChange }) {
   }
 
   const compareUnit = products[0]?.CompareUnit || "kg";
+  // Per 100 g brukes for kg-varer, og per 100 ml brukes for liter-varer.
   const baseAmountLabel = compareUnit === "l" ? "100 ml" : "100 g";
 
   return (
