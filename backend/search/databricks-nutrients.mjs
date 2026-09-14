@@ -1,7 +1,5 @@
-import pkg from "@databricks/sql";
+import { GOLD_TABLE, executeGoldQuery, productFromGoldRow, rowValue, sqlString, sqlStringList } from "./databricks-gold.mjs";
 import { normalizeText, splitNutrientQueries } from "./text.mjs";
-
-const { DBSQLClient } = pkg;
 
 const NUTRIENTS = [
   {
@@ -143,36 +141,9 @@ function findNutrient(query) {
   return { nutrient: null, missingQueries: queries.length > 0 ? queries : [query] };
 }
 
-function requireDatabricksEnv() {
-  const missing = ["DATABRICKS_SERVER_HOSTNAME", "DATABRICKS_HTTP_PATH", "DATABRICKS_TOKEN"].filter((key) => !process.env[key]);
-  if (missing.length > 0) {
-    throw new Error(`Mangler Databricks miljøvariabler: ${missing.join(", ")}`);
-  }
-}
-
-function rowValue(row, key) {
-  return row[key] ?? row[key.toUpperCase()] ?? row[key.toLowerCase()] ?? null;
-}
-
 function productFromDatabricksRow(row, nutrient) {
-  const chainKey = rowValue(row, "chain_key") || "";
-  const productUrl = rowValue(row, "website_url") || "";
-  const name = rowValue(row, "name") || rowValue(row, "Product") || "Ukjent produkt";
-
   return {
-    ProductKey: productUrl || name,
-    Name: name,
-    Brand: rowValue(row, "brand") || "",
-    ProductUrl: productUrl,
-    ImageUrl: rowValue(row, "image_url") || "",
-    Price: Number(rowValue(row, "price") || 0),
-    PricePerCompareUnit: Number(rowValue(row, "price_per_compare_unit") || 0),
-    CompareUnit: rowValue(row, "compare_unit") || "",
-    Description: rowValue(row, "description") || "",
-    Subtitle: rowValue(row, "subtitle") || "",
-    StoreName: rowValue(row, "store_name") || "",
-    ChainName: rowValue(row, "chain_name") || "",
-    ChainKey: chainKey,
+    ...productFromGoldRow(row),
     NutrientName: nutrient.displayName,
     NutrientUnit: nutrient.unit,
     NutrientAmountPer100g: Number(rowValue(row, "nutrient_per_100g") || 0),
@@ -182,6 +153,10 @@ function productFromDatabricksRow(row, nutrient) {
 }
 
 async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page, pageSize }) {
+  return queryDatabricksNutrientRankingWindow({ query, chains, compareUnit, page, pageSize }, pageSize, (page - 1) * pageSize);
+}
+
+async function queryDatabricksNutrientRankingWindow({ query, chains, compareUnit, page, pageSize }, limit, offset) {
   const { nutrient, missingQueries } = findNutrient(query);
   if (!nutrient || !nutrient.amountColumn || !nutrient.packageColumn || !nutrient.nokColumn) {
     return {
@@ -207,21 +182,8 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
     };
   }
 
-  requireDatabricksEnv();
-
-  const client = new DBSQLClient();
-  const offset = (page - 1) * pageSize;
-  const chainList = chains.map((chain) => `'${chain.replaceAll("'", "''")}'`).join(",");
-
-  try {
-    await client.connect({
-      host: process.env.DATABRICKS_SERVER_HOSTNAME,
-      path: process.env.DATABRICKS_HTTP_PATH,
-      token: process.env.DATABRICKS_TOKEN,
-    });
-
-    const session = await client.openSession();
-    const operation = await session.executeStatement(`
+  const chainList = sqlStringList(chains);
+  const rows = await executeGoldQuery(`
       WITH scored AS (
         SELECT
           title AS name,
@@ -238,8 +200,8 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
           ${nutrient.amountColumn} AS nutrient_per_100g,
           ${nutrient.packageColumn} AS nutrient_per_package,
           ${nutrient.nokColumn} AS nutrient_per_nok
-        FROM hybrid_test.default.product_nutritiens_gold
-        WHERE compare_unit = '${compareUnit}'
+        FROM ${GOLD_TABLE}
+        WHERE compare_unit = ${sqlString(compareUnit)}
           AND compare_price_per_unit > 0
           AND ${nutrient.amountColumn} > 0
           AND ${nutrient.nokColumn} > 0
@@ -252,41 +214,34 @@ async function queryDatabricksNutrientRanking({ query, chains, compareUnit, page
       SELECT *
       FROM counted
       ORDER BY nutrient_per_nok DESC, price_per_compare_unit ASC, price ASC
-      LIMIT ${pageSize}
+      LIMIT ${limit}
       OFFSET ${offset}
-    `, { runAsync: true });
+    `);
 
-    const rows = await operation.fetchAll();
-    await operation.close();
-    await session.close();
+  const items = rows.map((row) => productFromDatabricksRow(row, nutrient));
+  const total = Number(rowValue(rows[0] || {}, "total") || 0);
 
-    const items = rows.map((row) => productFromDatabricksRow(row, nutrient));
-    const total = Number(rowValue(rows[0] || {}, "total") || 0);
-
-    return {
-      mode: "nutrient",
-      query,
-      chains,
-      compareUnit,
-      page,
-      pageSize,
-      total,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
-      snapshotWeek: "",
-      snapshotCapturedAt: "",
-      nutrient: {
-        Name: nutrient.name,
-        DisplayName: nutrient.displayName,
-        Unit: nutrient.unit,
-      },
-      warnings: missingQueries.length > 0 ? [`Fant ikke næringsstoff for: ${missingQueries.join(", ")}`] : [],
-      missingQueries,
-      bestItem: items[0] || null,
-      items,
-    };
-  } finally {
-    await client.close();
-  }
+  return {
+    mode: "nutrient",
+    query,
+    chains,
+    compareUnit,
+    page,
+    pageSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    snapshotWeek: "",
+    snapshotCapturedAt: "",
+    nutrient: {
+      Name: nutrient.name,
+      DisplayName: nutrient.displayName,
+      Unit: nutrient.unit,
+    },
+    warnings: missingQueries.length > 0 ? [`Fant ikke næringsstoff for: ${missingQueries.join(", ")}`] : [],
+    missingQueries,
+    bestItem: items[0] || null,
+    items,
+  };
 }
 
-export { queryDatabricksNutrientRanking };
+export { queryDatabricksNutrientRanking, queryDatabricksNutrientRankingWindow };

@@ -1,6 +1,7 @@
 import { app } from "@azure/functions";
-import { buildCacheKey, withJsonCache } from "../../cache/redis.mjs";
-import { queryDatabricksNutrientRanking } from "../../search/databricks-nutrients.mjs";
+import { withPagedJsonCache } from "../../cache/redis.mjs";
+import { queryDatabricksNutrientRankingWindow } from "../../search/databricks-nutrients.mjs";
+import { queryDatabricksProductSearchWindow } from "../../search/databricks-products.mjs";
 import { getSearchParams } from "../../search/params.mjs";
 
 app.http("search", {
@@ -26,23 +27,20 @@ app.http("search", {
         };
       }
 
-      if (params.mode !== "nutrient") {
-        return {
-          status: 400,
-          headers: corsHeaders(),
-          jsonBody: { error: "Azure search endpoint supports Næringssøk only." },
-        };
-      }
-
-      const cacheKey = buildCacheKey("search", params);
-      const payload = await withJsonCache(cacheKey, () => queryDatabricksNutrientRanking(params), context);
+      const payload = await withPagedJsonCache(
+        params,
+        (blockStart, limit, offset) => params.mode === "nutrient"
+          ? queryDatabricksNutrientRankingWindow({ ...params, page: blockStart }, limit, offset)
+          : queryDatabricksProductSearchWindow({ ...params, page: blockStart }, limit, offset),
+        context,
+      );
       return {
         status: 200,
         headers: corsHeaders(),
         jsonBody: payload,
       };
     } catch (error) {
-      context.error("Databricks nutrient search failed:", error);
+      context.error("Databricks search failed:", error);
 
       return {
         status: 500,

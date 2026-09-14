@@ -1,6 +1,7 @@
 import { writeJson } from "../http/response.mjs";
-import { buildCacheKey, withJsonCache } from "../cache/redis.mjs";
-import { queryDatabricksNutrientRanking } from "../search/databricks-nutrients.mjs";
+import { withPagedJsonCache } from "../cache/redis.mjs";
+import { queryDatabricksNutrientRankingWindow } from "../search/databricks-nutrients.mjs";
+import { queryDatabricksProductSearchWindow } from "../search/databricks-products.mjs";
 import { getSearchParams } from "../search/params.mjs";
 
 async function handleSearchRequest(url, response) {
@@ -10,16 +11,14 @@ async function handleSearchRequest(url, response) {
     return;
   }
 
-  const payload = params.mode === "nutrient"
-    ? await withJsonCache(buildCacheKey("search", params), () => queryDatabricksNutrientRanking(params))
-    : await queryProductSearch(params);
+  const payload = await withPagedJsonCache(
+    params,
+    (blockStart, limit, offset) => params.mode === "nutrient"
+      ? queryDatabricksNutrientRankingWindow({ ...params, page: blockStart }, limit, offset)
+      : queryDatabricksProductSearchWindow({ ...params, page: blockStart }, limit, offset),
+  );
 
   writeJson(response, 200, payload, corsHeaders());
-}
-
-async function queryProductSearch(params) {
-  const module = await import("../search/products.mjs");
-  return module.queryProductSearch(params);
 }
 
 export { handleSearchRequest };
