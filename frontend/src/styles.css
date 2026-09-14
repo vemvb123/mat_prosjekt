@@ -163,8 +163,8 @@ a {
 
 .nutrient-picker {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, max-content));
+  gap: 8px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -173,13 +173,15 @@ a {
 .nutrient-picker label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 42px;
+  justify-content: flex-start;
+  gap: 7px;
+  min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 8px 12px;
+  padding: 7px 12px;
   background: #fffdf8;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .results {
@@ -262,7 +264,7 @@ a {
 
 .product-card-body {
   padding: 14px;
-  gap: 8px;
+  gap: 7px;
   align-content: start;
 }
 

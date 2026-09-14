@@ -1,6 +1,5 @@
-import HeroCard from "./HeroCard";
 import ProductCard from "./ProductCard";
-import { formatNok, formatNumber } from "../lib/format";
+import { formatNumber } from "../lib/format";
 
 function Pager({ result, onPageChange }) {
   return (
@@ -53,8 +52,7 @@ function NutrientResults({ result, onPageChange }) {
     );
   }
 
-  const best = result.bestItem || products[0];
-  const compareUnit = best.CompareUnit || "kg";
+  const compareUnit = products[0]?.CompareUnit || "kg";
   const baseAmountLabel = compareUnit === "l" ? "100 ml" : "100 g";
 
   return (
@@ -67,28 +65,12 @@ function NutrientResults({ result, onPageChange }) {
           ))}
         </section>
       ) : null}
-      <HeroCard
-        eyebrow={`Mest ${best.NutrientName} per krone`}
-        title={best.Name}
-        brand={best.Brand}
-        store={`${best.ChainName} | ${best.StoreName}`}
-        subtitle={best.Subtitle}
-        price={`${formatNok(best.Price)} kr`}
-        unit={`${formatNok(best.PricePerCompareUnit)} kr/${compareUnit}`}
-        description={`${formatNumber(best.NutrientAmountPer100g)} ${best.NutrientUnit} per ${baseAmountLabel} | ${formatNumber(best.NutrientAmountPerPackage)} ${best.NutrientUnit} per pakke | ${formatNumber(best.NutrientAmountPerKrone)} ${best.NutrientUnit} per krone`}
-        imageUrl={best.ImageUrl}
-        actions={
-          <a className="text-link" href={best.ProductUrl} target="_blank" rel="noreferrer">
-            Gå til produktsiden
-          </a>
-        }
-      />
       <section className="results-grid">
         {products.map((product) => (
           <ProductCard
             key={`${product.ProductKey}-${product.NutrientName}`}
             product={product}
-            metric={`${formatNumber(product.NutrientAmountPer100g)} ${product.NutrientUnit} per ${compareUnit === "l" ? "100 ml" : "100 g"} | ${formatNumber(product.NutrientAmountPerPackage)} ${product.NutrientUnit} per pakke | ${formatNumber(product.NutrientAmountPerKrone)} ${product.NutrientUnit} per krone`}
+            metric={`${formatNumber(product.NutrientAmountPer100g)} ${product.NutrientUnit} per ${baseAmountLabel}`}
           />
         ))}
       </section>

@@ -1,6 +1,4 @@
-import HeroCard from "./HeroCard";
 import ProductCard from "./ProductCard";
-import { formatNok } from "../lib/format";
 
 function Pager({ result, onPageChange }) {
   return (
@@ -40,26 +38,8 @@ function ProductResults({ result, onPageChange }) {
     );
   }
 
-  const best = result.bestItem || products[0];
-
   return (
     <>
-      <HeroCard
-        eyebrow="Billigste funn"
-        title={best.Name}
-        brand={best.Brand}
-        store={`${best.ChainName} | ${best.StoreName}`}
-        subtitle={best.Subtitle}
-        price={`${formatNok(best.Price)} kr`}
-        unit={`${formatNok(best.PricePerCompareUnit)} kr/${best.CompareUnit}`}
-        description={best.Description}
-        imageUrl={best.ImageUrl}
-        actions={
-          <a className="text-link" href={best.ProductUrl} target="_blank" rel="noreferrer">
-            Gå til produktsiden
-          </a>
-        }
-      />
       <section className="results-grid">
         {products.map((product) => (
           <ProductCard key={product.ProductKey} product={product} />

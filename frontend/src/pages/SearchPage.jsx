@@ -12,9 +12,6 @@ function SearchPage({ route, onSubmit, onPageChange }) {
     <>
       <section className="masthead">
         <h1>Mat prisfinner</h1>
-        <p className="masthead-copy">
-          Søk etter vanlige produkter eller finn hvilke varer som gir mest av et næringsstoff per krone.
-        </p>
         <SearchForm route={route} onSubmit={onSubmit} />
       </section>
       <section className="results">
