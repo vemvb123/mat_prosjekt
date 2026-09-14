@@ -1,5 +1,22 @@
 import { useEffect, useState } from "react";
 
+const NUTRIENT_OPTIONS = [
+  { value: "energy", label: "Energi" },
+  { value: "calories", label: "Kalorier" },
+  { value: "fat", label: "Fett" },
+  { value: "saturated_fat", label: "Mettet fett" },
+  { value: "carbohydrates", label: "Karbohydrater" },
+  { value: "sugars", label: "Sukkerarter" },
+  { value: "protein", label: "Protein" },
+  { value: "salt", label: "Salt" },
+];
+
+function normalizeNutrientQuery(value) {
+  const normalized = (value || "").toLowerCase().trim().replace(/\s+/g, "_");
+  const match = NUTRIENT_OPTIONS.find((nutrient) => nutrient.value === normalized || nutrient.label.toLowerCase().replace(/\s+/g, "_") === normalized);
+  return match?.value || NUTRIENT_OPTIONS[0].value;
+}
+
 function SearchForm({ route, onSubmit }) {
   const [mode, setMode] = useState(route.mode);
   const [query, setQuery] = useState(route.query);
@@ -8,7 +25,7 @@ function SearchForm({ route, onSubmit }) {
 
   useEffect(() => {
     setMode(route.mode);
-    setQuery(route.query);
+    setQuery(route.mode === "nutrient" ? normalizeNutrientQuery(route.query) : route.query);
     setChains(route.chains);
     setCompareUnit(route.compareUnit);
   }, [route]);
@@ -26,22 +43,33 @@ function SearchForm({ route, onSubmit }) {
 
   function submit(event) {
     event.preventDefault();
-    if (!query.trim()) {
+    const submittedQuery = mode === "nutrient" ? query || NUTRIENT_OPTIONS[0].value : query.trim();
+
+    if (!submittedQuery) {
       return;
     }
 
     onSubmit({
       mode,
-      query: query.trim(),
+      query: submittedQuery,
       chains,
       compareUnit,
     });
   }
 
+  function changeMode(nextMode) {
+    setMode(nextMode);
+    setQuery(nextMode === "nutrient" ? NUTRIENT_OPTIONS[0].value : "");
+  }
+
+  const helperText = mode === "nutrient"
+    ? "Finn produkter med meste næring for prisen"
+    : "Finn billigste produkter";
+
   return (
     <form className="search-form" onSubmit={submit}>
       <div className="search-row search-row--primary">
-        <select value={mode} onChange={(event) => setMode(event.target.value)}>
+        <select value={mode} onChange={(event) => changeMode(event.target.value)}>
           <option value="nutrient">Næringssøk</option>
           <option value="product">Produktsøk</option>
         </select>
@@ -55,14 +83,32 @@ function SearchForm({ route, onSubmit }) {
             MENY
           </label>
         </div>
+        <p className="search-helper">{helperText}</p>
+      </div>
+      {mode === "nutrient" ? (
+        <fieldset className="nutrient-picker">
+          {NUTRIENT_OPTIONS.map((nutrient) => (
+            <label key={nutrient.value}>
+              <input
+                type="radio"
+                name="nutrient"
+                value={nutrient.value}
+                checked={(query || NUTRIENT_OPTIONS[0].value) === nutrient.value}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              {nutrient.label}
+            </label>
+          ))}
+        </fieldset>
+      ) : (
         <input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Prøv for eksempel mettet fett eller skinke"
+          placeholder="Søk etter produkt, for eksempel skinke"
           required
         />
-      </div>
+      )}
       <div className="search-row">
         <div className="chain-picker">
           <label>
@@ -86,7 +132,7 @@ function SearchForm({ route, onSubmit }) {
             kr/l
           </label>
         </div>
-        <button type="submit">Finn billigst</button>
+        <button type="submit">{mode === "nutrient" ? "Finn næring" : "Finn billigst"}</button>
       </div>
     </form>
   );

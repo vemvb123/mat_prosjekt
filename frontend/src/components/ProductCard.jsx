@@ -1,14 +1,14 @@
 import { formatNok } from "../lib/format";
 
 function ProductCard({ product, metric = "" }) {
+  const store = [product.ChainName, product.StoreName].filter(Boolean).join(" | ");
+
   return (
     <article className="product-card">
       <img src={product.ImageUrl} alt={product.Name} loading="lazy" />
       <div className="product-card-body">
         <p className="product-brand">{product.Brand}</p>
-        <p className="product-store">
-          {product.ChainName} | {product.StoreName}
-        </p>
+        {store ? <p className="product-store">{store}</p> : null}
         <h3>{product.Name}</h3>
         <p className="product-subtitle">{product.Subtitle}</p>
         <p className="product-price">{formatNok(product.Price)} kr</p>

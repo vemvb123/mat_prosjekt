@@ -11,10 +11,9 @@ function SearchPage({ route, onSubmit, onPageChange }) {
   return (
     <>
       <section className="masthead">
-        <p className="eyebrow">Node backend + SQLite</p>
         <h1>Mat prisfinner</h1>
         <p className="masthead-copy">
-          Frontenden ber Node-backenden om paginerte resultater, og Node leser direkte fra SQLite.
+          Søk etter vanlige produkter eller finn hvilke varer som gir mest av et næringsstoff per krone.
         </p>
         <SearchForm route={route} onSubmit={onSubmit} />
       </section>

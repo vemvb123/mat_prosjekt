@@ -45,7 +45,7 @@ function ProductResults({ result, onPageChange }) {
   return (
     <>
       <HeroCard
-        eyebrow="Billigste funn per sammenligningsenhet"
+        eyebrow="Billigste funn"
         title={best.Name}
         brand={best.Brand}
         store={`${best.ChainName} | ${best.StoreName}`}
