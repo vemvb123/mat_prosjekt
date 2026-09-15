@@ -17,13 +17,14 @@ https://github.com/vemvb123/mat-prosjekt-databricks
 ## Arkitektur
 
 ```text
-Frontend React/Vite
+Frontend React/Azure Static Web App
   -> /api/search
 Backend Node/Azure Function
-  -> optional Redis cache
+  -> Azure Managed redis eller lokal Redis Server
   -> Databricks SQL warehouse eller lokal SQL Server
-  -> gold tabell
 ```
+
+Data hentes fra en Gold tabell.
 
 Gold-tabellen forventes å ha ferdig beregnede kolonner som:
 
