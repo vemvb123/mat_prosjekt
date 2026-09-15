@@ -51,26 +51,8 @@ Backend Node/Azure Function
   -> Databricks SQL warehouse eller lokal SQL Server
 ```
 
-Data hentes fra en Gold tabell.
+Data hentes fra en Gold tabell i Azure databricks.
 
-
-```text
-chain
-title
-brand
-description
-website_url
-image_url
-price_per_unit
-compare_price_per_unit
-compare_unit
-subtitle
-energy_amount
-protein_amount
-protein_per_package
-protein_per_nok
-...
-```
 
 
 ## Noen viktige filer
